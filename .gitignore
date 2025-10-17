@@ -20,3 +20,5 @@ terabox.txt
 rclone.conf
 
 venv
+# pixi environments
+.pixi

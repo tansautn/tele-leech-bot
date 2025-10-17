@@ -1,0 +1,58 @@
+[project]
+name = "telebot"
+requires-python = ">= 3.11"
+version = "0.1.0"
+dependencies = ["dotenv>=0.9.9,<0.10", "python-dotenv>=1.1.1,<2"]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+telebot = { path = ".", editable = true }
+aiofiles = "*"
+aioshutil = ">=1.5, <2"
+anytree = ">=2.13.0, <3"
+apscheduler = ">=3.11.0, <4"
+aria2p = ">=0.12.1, <0.13"
+asyncio = ">=4.0.0, <5"
+cloudscraper = ">=1.2.71, <2"
+dnspython = ">=2.8.0, <3"
+feedparser = ">=6.0.12, <7"
+flask = ">=3.1.2, <4"
+gevent = ">=25.9.1, <26"
+google-api-python-client = ">=2.184.0, <3"
+google-auth-httplib2 = ">=0.2.0, <0.3"
+google-auth-oauthlib = ">=1.2.2, <2"
+gunicorn = ">=23.0.0, <24"
+httpx = ">=0.28.1, <0.29"
+lxml = ">=6.0.2, <7"
+motor = ">=3.7.1, <4"
+natsort = ">=8.4.0, <9"
+pillow = ">=12.0.0, <13"
+psutil = ">=7.1.0, <8"
+pycryptodome = ">=3.23.0, <4"
+pymongo = ">=4.15.3, <5"
+python-magic = ">=0.4.27, <0.5"
+qbittorrent-api = ">=2025.7.0, <2026"
+requests = ">=2.32.5, <3"
+telegraph = ">=2.2.0, <3"
+tenacity = ">=9.1.2, <10"
+tgcrypto = ">=1.2.5, <2"
+urllib3 = ">=2.5.0, <3"
+uvloop = ">=0.22.1, <0.23"
+xattr = ">=1.3.0, <2"
+yt-dlp = ">=2025.10.14, <2026"
+oauth2client = ">=4.1.3, <5"
+progress = ">=1.6.1, <2"
+progressbar2 = ">=4.5.0, <5"
+httplib2shim = ">=0.0.3, <0.0.4"
+pyrogram = ">=2.0.106, <3"
+
+
+[tool.pixi.tasks]
+start = { cmd = "bash start.sh", cwd = "/root/telebot" }

@@ -52,7 +52,12 @@ getLogger("httpx").setLevel(ERROR)
 getLogger("pymongo").setLevel(ERROR)
 
 botStartTime = time()
-bot_loop = get_event_loop()
+try:
+    bot_loop = get_event_loop()
+except:
+    import asyncio
+    bot_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(bot_loop)
 
 basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
