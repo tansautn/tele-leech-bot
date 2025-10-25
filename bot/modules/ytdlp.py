@@ -445,6 +445,8 @@ class YtDlp(TaskListener):
                 return
 
         LOGGER.info(f"Downloading with YT-DLP: {self.link}")
+        LOGGER.debug(f"path: {path}, qal: {qual}, playlist: {playlist}")
+        LOGGER.debug(f"options: {opt}")
         playlist = "entries" in result
         ydl = YoutubeDLHelper(self)
         await ydl.add_download(path, qual, playlist, opt)

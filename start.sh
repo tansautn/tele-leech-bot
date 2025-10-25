@@ -1,5 +1,7 @@
 #TODO: check to use update or not
-python3 update.py && python3 -m bot
+
+eval $(pixi shell-hook)
+python update.py && python -m bot
 
 
 #OLD from debian deploy

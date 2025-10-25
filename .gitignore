@@ -20,5 +20,7 @@ terabox.txt
 rclone.conf
 
 venv
+
 # pixi environments
 .pixi
+*.egg-info
