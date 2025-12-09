@@ -323,7 +323,7 @@ class SevenZ:
                 break
             line = line.decode().strip()
             if match := re_search(pattern, line):
-                self._listener.subsize = int(match[1] or match[2])
+                self._listener.subsize = int(match[1] or match[2] or match[3])
             await sleep(0.05)
         s = b""
         while not (
