@@ -17,6 +17,7 @@ class Config:
     EQUAL_SPLITS = False
     ENABLED_MODULES = "aria2c tgLeech ytDlp"
     EXCLUDED_EXTENSIONS = ""
+    INCLUDED_EXTENSIONS = ""
     FFMPEG_CMDS = {}
     FILELION_API = ""
     GDRIVE_ID = ""

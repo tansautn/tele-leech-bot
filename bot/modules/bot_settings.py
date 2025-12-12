@@ -27,6 +27,7 @@ from .. import (
     nzb_options,
     jd_listener_lock,
     excluded_extensions,
+    included_extensions,
     auth_chats,
     sudo_users,
 )
@@ -278,6 +279,12 @@ async def edit_variable(_, message, pre_message, key):
         for x in fx:
             x = x.lstrip(".")
             excluded_extensions.append(x.strip().lower())
+    elif key == "INCLUDED_EXTENSIONS":
+        fx = value.split()
+        included_extensions.clear()
+        for x in fx:
+            x = x.lstrip(".")
+            included_extensions.append(x.strip().lower())
     elif key == "GDRIVE_ID":
         if drives_names and drives_names[0] == "Main":
             drives_ids[0] = value
@@ -595,6 +602,8 @@ async def edit_bot_settings(client, query):
             await TorrentManager.change_aria2_option("all-proxy", "")
             from ..core.startup import _apply_qb_proxy
             await _apply_qb_proxy("")
+        elif data[2] == "INCLUDED_EXTENSIONS":
+            included_extensions.clear()
         elif data[2] == "TORRENT_TIMEOUT":
             await TorrentManager.change_aria2_option("bt-stop-timeout", "0")
             await database.update_aria2("bt-stop-timeout", "0")
