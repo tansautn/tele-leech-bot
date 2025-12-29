@@ -13,6 +13,7 @@ class Config:
     BOT_TOKEN = ""
     CMD_SUFFIX = ""
     DATABASE_URL = ""
+    DATABASE_NAME = "mltb"
     DEFAULT_UPLOAD = "rc"
     EQUAL_SPLITS = False
     ENABLED_MODULES = "aria2c tgLeech ytDlp"
