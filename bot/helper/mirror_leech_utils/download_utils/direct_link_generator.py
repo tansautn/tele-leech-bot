@@ -243,10 +243,11 @@ def get_captcha_token(session, params):
     if token := findall(r'"rresp","(.*?)"', res.text):
         return token[0]
 
+
 def transfer_it(url):
     resp = post("https://transfer-it-thezake.vercel.app/api/post", json={"url": url})
     if resp.status_code == 200:
-        return resp.json()['url']
+        return resp.json()["url"]
     else:
         raise DirectDownloadLinkException("ERROR: File Expired or File Not Found")
 
@@ -554,6 +555,7 @@ def mediafile(url):
     except Exception as e:
         raise DirectDownloadLinkException(f"ERROR: {str(e)}") from e
 
+
 def mediafire(url, session=None):
     if "/folder/" in url:
         return mediafireFolder(url)
@@ -614,7 +616,8 @@ def mediafire(url, session=None):
         return mediafire(final_url, session)
     session.close()
     return final_link[0]
-    
+
+
 def osdn(url):
     with create_scraper() as session:
         try:
@@ -1562,6 +1565,7 @@ def gofile(url):
         return (details["contents"][0]["url"], details["header"])
     return details
 
+
 def mediafireFolder(url):
     if "::" in url:
         _password = url.split("::")[-1]
@@ -1649,12 +1653,12 @@ def mediafireFolder(url):
         except:
             return None
         return final_link
-    
+
     def __decode_url(html):
         enc_url = html.xpath('//a[@id="downloadButton"]')
         if enc_url:
-            final_link = enc_url[0].attrib.get('href')
-            scrambled = enc_url[0].attrib.get('data-scrambled-url')
+            final_link = enc_url[0].attrib.get("href")
+            scrambled = enc_url[0].attrib.get("data-scrambled-url")
             if final_link and scrambled:
                 try:
                     final_link = b64decode(scrambled).decode("utf-8")
