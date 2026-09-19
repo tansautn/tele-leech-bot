@@ -99,13 +99,9 @@ async def update_aria2_options():
 
 
 async def update_nzb_options():
-<<<<<<< HEAD
     from .. import ENABLED_MODULES
     if "nZB" not in ENABLED_MODULES or sabnzbd_client is None:
         return
-    no = (await sabnzbd_client.get_config())["config"]["misc"]
-    nzb_options.update(no)
-=======
     LOGGER.info("Get SABnzbd options from server")
     while True:
         try:
@@ -115,7 +111,6 @@ async def update_nzb_options():
             await sleep(0.5)
             continue
         break
->>>>>>> 626e970 (some fixes)
 
 
 async def load_settings():
