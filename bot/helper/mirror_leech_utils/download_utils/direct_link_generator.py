@@ -242,7 +242,7 @@ def get_captcha_token(session, params):
         return token[0]
 
 def transfer_it(url):
-    resp = post('https://transfer-it-henna.vercel.app/post',json={'url': url})
+    resp = post("https://transfer.it-thezake.vercel.app/api/post", json={"url": url})
     if resp.status_code == 200:
         return resp.json()['url']
     else:
