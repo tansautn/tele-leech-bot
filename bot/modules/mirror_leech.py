@@ -72,14 +72,7 @@ class Mirror(TaskListener):
         self.is_nzb = is_nzb
 
     async def new_event(self):
-        if self.message.rich_message:
-            text = text = (
-                self.message.rich_message.blocks[0].text[0].text
-                + self.message.rich_message.blocks[0].text[1]
-            )
-        else:
-            text = self.message.text
-        text = text.split("\n")
+        text = self.message.text.split("\n")
         input_list = text[0].split(" ")
 
         args = {

@@ -92,8 +92,12 @@ async def cancel_updates(_, query):
             button = ButtonMaker()
             button.data_button("Yes", f"cancel conf {data[2]}", style="green")
             button.data_button("No", "cancel close", style="red")
+            cmd_msg = (
+                await TgClient.bot.get_messages(query.message.chat.id, task.listener.mid)
+                or query.message
+            )
             res = await send_message(
-                query.message,
+                cmd_msg,
                 "Are you sure you want to cancel this task?",
                 buttons=button.build_menu(2),
             )
