@@ -1,6 +1,8 @@
 from httpx import AsyncClient
 from asyncio import wait_for, Event
 from functools import partial
+from os import getcwd
+from os.path import isabs, isfile, join as pathjoin
 from pyrogram.filters import regex, user
 from pyrogram.handlers import CallbackQueryHandler
 from time import time
@@ -434,8 +436,10 @@ class YtDlp(TaskListener):
             await send_message(self.message, e)
             await self.remove_from_same_dir()
             return
-        # options = {"usenetrc": True, "cookiefile": "cookies.txt"}
         options = {"usenetrc": True}
+        cookies = pathjoin(getcwd(), "cookies.txt")
+        if isfile(cookies):
+            options["cookiefile"] = cookies
         if opt:
             for key, value in opt.items():
                 if key in ["postprocessors", "download_ranges"]:
@@ -446,6 +450,8 @@ class YtDlp(TaskListener):
                         continue
                     else:
                         qual = value
+                if key == "cookiefile" and not isabs(value):
+                    value = pathjoin(getcwd(), value)
                 options[key] = value
         options["playlist_items"] = "0"
         try:

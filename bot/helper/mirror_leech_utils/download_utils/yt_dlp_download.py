@@ -1,10 +1,12 @@
 from logging import getLogger
-from os import path as ospath, listdir
+from os import path as ospath, listdir, getcwd
 from re import search as re_search
 from secrets import token_urlsafe
 from yt_dlp import YoutubeDL, DownloadError
 
 from .... import task_dict_lock, task_dict
+
+_COOKIES_FILE = ospath.join(getcwd(), "cookies.txt")
 from ...ext_utils.bot_utils import sync_to_async, async_to_sync
 from ...ext_utils.task_manager import check_running_tasks, stop_duplicate_check
 from ...mirror_leech_utils.status_utils.queue_status import QueueStatus
@@ -55,7 +57,7 @@ class YoutubeDLHelper:
             "progress_hooks": [self._on_download_progress],
             "logger": MyLogger(self, self._listener),
             "usenetrc": True,
-            # "cookiefile": "cookies.txt",
+            **({"cookiefile": _COOKIES_FILE} if ospath.isfile(_COOKIES_FILE) else {}),
             "allow_multiple_video_streams": True,
             "allow_multiple_audio_streams": True,
             "noprogress": True,
@@ -352,4 +354,6 @@ class YoutubeDLHelper:
                 if isinstance(value, list):
                     self.opts[key] = lambda info, ytdl: value
             else:
+                if key == "cookiefile" and not ospath.isabs(value):
+                    value = ospath.join(getcwd(), value)
                 self.opts[key] = value
