@@ -69,6 +69,7 @@ Environment=PATH=${PIXI_BIN}:/usr/local/bin:/usr/bin:/bin
 ExecStart=${PIXI_BIN}/pixi run bot
 Restart=always
 RestartSec=5
+KillMode=mixed
 KillSignal=SIGINT
 TimeoutStopSec=60
 
