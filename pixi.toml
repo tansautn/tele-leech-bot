@@ -1,0 +1,21 @@
+[workspace]
+authors = ["Zuko <tansautn@gmail.com>"]
+channels = ["conda-forge"]
+name = "tele-leech-bot"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.11,<3.12"
+
+[feature.cli.pypi-dependencies]
+oauth2client = "*"
+google-api-python-client = "*"
+progress = "*"
+progressbar2 = "*"
+httplib2shim = "*"
+google-auth-oauthlib = "*"
+kurigram = "*"
+cli = "*"
