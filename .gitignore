@@ -1,5 +1,6 @@
 mltbenv/*
-config.py
+# config.py is now tracked — secrets go in .env
+.env
 token.pickle
 rclone.conf
 .netrc
@@ -18,6 +19,5 @@ downloads/*
 .pixi/*
 !.pixi/config.toml
 *.log
-config.env
 .idea
 __pycache__
