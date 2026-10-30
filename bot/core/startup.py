@@ -32,6 +32,9 @@ def _parse_proxy_url(url):
 
 
 async def update_qb_options():
+    from .. import ENABLED_MODULES
+    if "qBit" not in ENABLED_MODULES:
+        return
     if not qbit_options:
         opt = await TorrentManager.qbittorrent.app.preferences()
         qbit_options.update(opt)
@@ -77,6 +80,9 @@ async def _apply_qb_proxy(proxy_url):
 
 
 async def update_aria2_options():
+    from .. import ENABLED_MODULES
+    if "aria2c" not in ENABLED_MODULES:
+        return
     if not aria2_options:
         op = await TorrentManager.aria2.getGlobalOption()
         aria2_options.update(op)
@@ -90,6 +96,9 @@ async def update_aria2_options():
 
 
 async def update_nzb_options():
+    from .. import ENABLED_MODULES
+    if "nZB" not in ENABLED_MODULES or sabnzbd_client is None:
+        return
     no = (await sabnzbd_client.get_config())["config"]["misc"]
     nzb_options.update(no)
 
@@ -195,22 +204,26 @@ async def load_settings():
 async def save_settings():
     if database.db is None:
         return
+    from .. import ENABLED_MODULES
     config_dict = Config.get_all()
     await database.db.settings.config.replace_one(
         {"_id": TgClient.ID}, config_dict, upsert=True
     )
-    if await database.db.settings.aria2c.find_one({"_id": TgClient.ID}) is None:
-        await database.db.settings.aria2c.update_one(
-            {"_id": TgClient.ID}, {"$set": aria2_options}, upsert=True
-        )
-    if await database.db.settings.qbittorrent.find_one({"_id": TgClient.ID}) is None:
-        await database.save_qbit_settings()
-    if await database.db.settings.nzb.find_one({"_id": TgClient.ID}) is None:
-        async with aiopen("sabnzbd/SABnzbd.ini", "rb+") as pf:
-            nzb_conf = await pf.read()
-        await database.db.settings.nzb.update_one(
-            {"_id": TgClient.ID}, {"$set": {"SABnzbd__ini": nzb_conf}}, upsert=True
-        )
+    if "aria2c" in ENABLED_MODULES:
+        if await database.db.settings.aria2c.find_one({"_id": TgClient.ID}) is None:
+            await database.db.settings.aria2c.update_one(
+                {"_id": TgClient.ID}, {"$set": aria2_options}, upsert=True
+            )
+    if "qBit" in ENABLED_MODULES:
+        if await database.db.settings.qbittorrent.find_one({"_id": TgClient.ID}) is None:
+            await database.save_qbit_settings()
+    if "nZB" in ENABLED_MODULES:
+        if await database.db.settings.nzb.find_one({"_id": TgClient.ID}) is None:
+            async with aiopen("sabnzbd/SABnzbd.ini", "rb+") as pf:
+                nzb_conf = await pf.read()
+            await database.db.settings.nzb.update_one(
+                {"_id": TgClient.ID}, {"$set": {"SABnzbd__ini": nzb_conf}}, upsert=True
+            )
 
 
 async def update_variables():

@@ -19,12 +19,11 @@ class TgClient:
         LOGGER.info("Creating client from BOT_TOKEN")
         cls.ID = Config.BOT_TOKEN.split(":", 1)[0]
         cls.bot = Client(
-            cls.ID,
+            Config.PYROGRAM_SESSION_FILE_NAME_PREFIX,
             Config.TELEGRAM_API,
             Config.TELEGRAM_HASH,
-            proxy=Config.TG_PROXY,
+            proxy=Config.TG_PROXY or None,
             bot_token=Config.BOT_TOKEN,
-            workdir="/usr/src/app",
             parse_mode=enums.ParseMode.HTML,
             max_concurrent_transmissions=10,
         )
@@ -40,7 +39,7 @@ class TgClient:
                     "user",
                     Config.TELEGRAM_API,
                     Config.TELEGRAM_HASH,
-                    proxy=Config.TG_PROXY,
+                    proxy=Config.TG_PROXY or None,
                     session_string=Config.USER_SESSION_STRING,
                     parse_mode=enums.ParseMode.HTML,
                     sleep_threshold=60,

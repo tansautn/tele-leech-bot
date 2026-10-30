@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+print(Path(__file__).parent.parent)
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from __future__ import print_function
 
 import argparse
@@ -6,6 +10,7 @@ import googleapiclient.discovery
 import json
 import os
 import pickle
+# noinspection PyUnresolvedReferences
 import progress.bar
 import sys
 import time

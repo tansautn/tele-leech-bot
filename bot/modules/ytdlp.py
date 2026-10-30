@@ -357,7 +357,7 @@ class YtDlp(TaskListener):
         self.thumbnail_layout = args["-tl"]
         self.as_doc = args["-doc"]
         self.as_med = args["-med"]
-        self.folder_name = f"/{args["-m"]}".rstrip("/") if len(args["-m"]) > 0 else ""
+        self.folder_name = f"/{args['-m']}".rstrip("/") if len(args["-m"]) > 0 else ""
         self.bot_trans = args["-bt"]
         self.user_trans = args["-ut"]
 
@@ -434,7 +434,8 @@ class YtDlp(TaskListener):
             await send_message(self.message, e)
             await self.remove_from_same_dir()
             return
-        options = {"usenetrc": True, "cookiefile": "cookies.txt"}
+        # options = {"usenetrc": True, "cookiefile": "cookies.txt"}
+        options = {"usenetrc": True}
         if opt:
             for key, value in opt.items():
                 if key in ["postprocessors", "download_ranges"]:

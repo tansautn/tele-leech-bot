@@ -14,9 +14,12 @@ from logging import (
     WARNING,
     ERROR,
 )
-from sabnzbdapi import SabnzbdClient
 from time import time
-from os import cpu_count
+from os import cpu_count, environ, getcwd
+
+ENABLED_MODULES = environ.get("ENABLED_MODULES", "aria2c tgLeech ytDlp").split()
+if "tgLeech" not in ENABLED_MODULES:
+    ENABLED_MODULES.append("tgLeech")
 
 getLogger("requests").setLevel(WARNING)
 getLogger("urllib3").setLevel(WARNING)
@@ -39,7 +42,7 @@ basicConfig(
 LOGGER = getLogger(__name__)
 cpu_no = cpu_count()
 
-DOWNLOAD_DIR = "/usr/src/app/downloads/"
+DOWNLOAD_DIR = f"{getcwd()}/downloads/"
 intervals = {"status": {}, "qb": "", "jd": "", "nzb": "", "stopAll": False}
 qb_torrents = {}
 jd_downloads = {}
@@ -70,10 +73,14 @@ jd_listener_lock = Lock()
 cpu_eater_lock = Lock()
 same_directory_lock = Lock()
 
-sabnzbd_client = SabnzbdClient(
-    host="http://localhost",
-    api_key="mltb",
-    port="8070",
-)
+if "nZB" in ENABLED_MODULES:
+    from sabnzbdapi import SabnzbdClient
+    sabnzbd_client = SabnzbdClient(
+        host="http://localhost",
+        api_key="mltb",
+        port="8070",
+    )
+else:
+    sabnzbd_client = None
 
 scheduler = AsyncIOScheduler(event_loop=bot_loop)

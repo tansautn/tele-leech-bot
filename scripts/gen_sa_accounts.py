@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+print(Path(__file__).parent.parent)
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 import errno
 import os
 import pickle

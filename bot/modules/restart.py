@@ -3,6 +3,7 @@ from aiofiles import open as aiopen
 from aiofiles.os import path as aiopath, remove
 from asyncio import gather, create_subprocess_exec
 from os import execl as osexecl
+from pyrogram.types import LinkPreviewOptions
 
 from .. import intervals, scheduler, sabnzbd_client, LOGGER
 from ..helper.ext_utils.bot_utils import new_task
@@ -35,14 +36,14 @@ async def send_incomplete_task_message(cid, msg_id, msg):
                 chat_id=cid,
                 message_id=msg_id,
                 text=msg,
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
             await remove(".restartmsg")
         else:
             await TgClient.bot.send_message(
                 chat_id=cid,
                 text=msg,
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 disable_notification=True,
             )
     except Exception as e:
@@ -104,7 +105,7 @@ async def confirm_restart(_, query):
                 intvl.cancel()
         await clean_all()
         await TorrentManager.close_all()
-        if sabnzbd_client.LOGGED_IN:
+        if sabnzbd_client and sabnzbd_client.LOGGED_IN:
             await gather(
                 sabnzbd_client.pause_all(),
                 sabnzbd_client.delete_job("all", True),

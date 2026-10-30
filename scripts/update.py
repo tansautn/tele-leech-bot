@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+print(Path(__file__).parent.parent)
+sys.path.append(str(Path(__file__).parent.parent.absolute()))
 from sys import exit
 from importlib import import_module
 from logging import (

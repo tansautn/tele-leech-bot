@@ -145,7 +145,7 @@ pixi install -e cli   # CLI tools env: GDrive token gen, service accounts, etc.
 
 ## Hardcoded Paths (Linux container assumed)
 
-- `/usr/src/app/downloads/` — `DOWNLOAD_DIR`, hardcoded in `bot/__init__.py` (the `.env` value is not read).
-- `/usr/src/app` — Pyrogram workdir
+- `<CWD>/downloads/` — `DOWNLOAD_DIR` in `bot/__init__.py`, built from `getcwd()` at launch (the `.env` value is not read).
+- Pyrogram session workdir — launch working directory (the `/usr/src/app` override was removed).
 - `/JDownloader/cfg` — JDownloader config
 - `/root/.netrc` — netrc for aria2c auth (copied from repo `.netrc` at startup)

@@ -15,6 +15,7 @@ class Config:
     DATABASE_URL = ""
     DEFAULT_UPLOAD = "rc"
     EQUAL_SPLITS = False
+    ENABLED_MODULES = "aria2c tgLeech ytDlp"
     EXCLUDED_EXTENSIONS = ""
     FFMPEG_CMDS = {}
     FILELION_API = ""
@@ -56,6 +57,7 @@ class Config:
     TELEGRAM_API = 0
     TELEGRAM_HASH = ""
     PROXY_URL = ""
+    PYROGRAM_SESSION_FILE_NAME_PREFIX = "bot"
     TG_PROXY = {}
     THUMBNAIL_LAYOUT = ""
     TORRENT_TIMEOUT = 0
