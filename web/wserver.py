@@ -1,6 +1,8 @@
-from uvloop import install
-
-install()
+try:
+    from uvloop import install
+    install()
+except ImportError:
+    pass
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
