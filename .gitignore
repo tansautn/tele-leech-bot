@@ -19,3 +19,5 @@ downloads/*
 !.pixi/config.toml
 *.log
 config.env
+.idea
+__pycache__
