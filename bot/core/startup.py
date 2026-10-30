@@ -3,6 +3,7 @@ from aiofiles import open as aiopen
 from aioshutil import rmtree
 from asyncio import create_subprocess_exec, create_subprocess_shell
 from importlib import import_module
+from urllib.parse import urlparse
 
 from .. import (
     aria2_options,
@@ -25,6 +26,11 @@ from .mltb_client import TgClient
 from .torrent_manager import TorrentManager
 
 
+def _parse_proxy_url(url):
+    p = urlparse(url)
+    return p.scheme, p.hostname, p.port, p.username, p.password
+
+
 async def update_qb_options():
     if not qbit_options:
         opt = await TorrentManager.qbittorrent.app.preferences()
@@ -39,6 +45,35 @@ async def update_qb_options():
         )
     else:
         await TorrentManager.qbittorrent.app.set_preferences(qbit_options)
+    if Config.PROXY_URL:
+        await _apply_qb_proxy(Config.PROXY_URL)
+
+
+async def _apply_qb_proxy(proxy_url):
+    if not proxy_url:
+        prefs = {
+            "proxy_type": -1,
+            "proxy_ip": "",
+            "proxy_port": 0,
+            "proxy_auth_enabled": False,
+            "proxy_username": "",
+            "proxy_password": "",
+        }
+    else:
+        scheme, host, port, user, passwd = _parse_proxy_url(proxy_url)
+        # qBit: 1=HTTP, 2=SOCKS5, 4=HTTP_AUTH, 5=SOCKS4
+        ptype = 2 if "socks" in (scheme or "") else 1
+        prefs = {
+            "proxy_type": ptype,
+            "proxy_ip": host or "",
+            "proxy_port": port or 0,
+            "proxy_auth_enabled": bool(user),
+            "proxy_username": user or "",
+            "proxy_password": passwd or "",
+            "proxy_peer_connections": True,
+            "proxy_torrents_only": False,
+        }
+    await TorrentManager.qbittorrent.app.set_preferences(prefs)
 
 
 async def update_aria2_options():
@@ -47,6 +82,11 @@ async def update_aria2_options():
         aria2_options.update(op)
     else:
         await TorrentManager.aria2.changeGlobalOption(aria2_options)
+    if Config.PROXY_URL:
+        await TorrentManager.aria2.changeGlobalOption(
+            {"all-proxy": Config.PROXY_URL}
+        )
+        aria2_options["all-proxy"] = Config.PROXY_URL
 
 
 async def update_nzb_options():

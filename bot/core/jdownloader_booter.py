@@ -3,6 +3,7 @@ from aioshutil import rmtree
 from json import dump
 from random import randint
 from re import match
+from urllib.parse import urlparse
 
 from .. import LOGGER
 from ..helper.ext_utils.bot_utils import cmd_exec, new_task
@@ -70,6 +71,32 @@ class JDownloader(MyJdApi):
         ) as rf:
             rf.truncate(0)
             dump(remote_data, rf)
+        if Config.PROXY_URL:
+            p = urlparse(Config.PROXY_URL)
+            proxy_data = {
+                "customProxyList": [
+                    {
+                        "type": "SOCKS5" if "socks" in (p.scheme or "") else "HTTP",
+                        "address": p.hostname or "",
+                        "port": p.port or 0,
+                        "username": p.username or None,
+                        "password": p.password or None,
+                        "useConnectMethod": False,
+                        "preferNativeImplementation": False,
+                        "resolveHostName": True,
+                        "enabled": True,
+                    }
+                ],
+                "routeMethodOrder": "NONE",
+                "proxyBanTimeout": 1200000,
+            }
+            with open(
+                "/JDownloader/cfg/org.jdownloader.settings.InternetConnectionSettings.json",
+                "w",
+            ) as pf:
+                pf.truncate(0)
+                dump(proxy_data, pf)
+
         if not await path.exists("/JDownloader/JDownloader.jar"):
             pattern = r"JDownloader\.jar\.backup.\d$"
             for filename in await listdir("/JDownloader"):

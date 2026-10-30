@@ -72,6 +72,8 @@ class YoutubeDLHelper:
                 "extractor": lambda n: 3,
             },
         }
+        if listener.proxy_url:
+            self.opts["proxy"] = listener.proxy_url
 
     @property
     def download_speed(self):

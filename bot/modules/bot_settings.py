@@ -255,6 +255,10 @@ async def edit_variable(_, message, pre_message, key):
                 intervals["status"][cid] = SetInterval(
                     value, update_status_message, cid
                 )
+    elif key == "PROXY_URL":
+        await TorrentManager.change_aria2_option("all-proxy", value or "")
+        from ..core.startup import _apply_qb_proxy
+        await _apply_qb_proxy(value)
     elif key == "TORRENT_TIMEOUT":
         await TorrentManager.change_aria2_option("bt-stop-timeout", value)
         value = int(value)
@@ -587,6 +591,10 @@ async def edit_bot_settings(client, query):
         elif data[2] == "EXCLUDED_EXTENSIONS":
             excluded_extensions.clear()
             excluded_extensions.extend(["aria2", "!qB"])
+        elif data[2] == "PROXY_URL":
+            await TorrentManager.change_aria2_option("all-proxy", "")
+            from ..core.startup import _apply_qb_proxy
+            await _apply_qb_proxy("")
         elif data[2] == "TORRENT_TIMEOUT":
             await TorrentManager.change_aria2_option("bt-stop-timeout", "0")
             await database.update_aria2("bt-stop-timeout", "0")

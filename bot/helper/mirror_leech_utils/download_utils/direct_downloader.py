@@ -44,6 +44,10 @@ async def add_direct_download(listener, path):
     a2c_opt = {"follow-torrent": "false", "follow-metalink": "false"}
     if header := details.get("header"):
         a2c_opt["header"] = header
+    if listener.proxy_url:
+        a2c_opt["all-proxy"] = listener.proxy_url
+    elif listener.proxy_url == "":
+        a2c_opt["all-proxy"] = ""
     directListener = DirectListener(path, listener, a2c_opt)
 
     async with task_dict_lock:

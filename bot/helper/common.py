@@ -113,6 +113,7 @@ class TaskConfig:
         self.is_file = False
         self.bot_trans = False
         self.user_trans = False
+        self.proxy_url = None
         self.progress = True
         self.ffmpeg_cmds = None
         self.chat_thread_id = None
@@ -204,6 +205,10 @@ class TaskConfig:
                 self.link = await GoogleDriveList(self).get_target_id("gdd")
                 if not is_gdrive_id(self.link):
                     raise ValueError(self.link)
+
+        if self.proxy_url is None:
+            self.proxy_url = Config.PROXY_URL or ""
+        # proxy_url: "" = no proxy, non-empty = use that proxy
 
         self.user_transmission = TgClient.IS_PREMIUM_USER and (
             self.user_dict.get("USER_TRANSMISSION")

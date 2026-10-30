@@ -25,6 +25,10 @@ async def add_aria2_download(listener, dpath, header, ratio, seed_time):
         a2c_opt["seed-time"] = seed_time
     if TORRENT_TIMEOUT := Config.TORRENT_TIMEOUT:
         a2c_opt["bt-stop-timeout"] = f"{TORRENT_TIMEOUT}"
+    if listener.proxy_url:
+        a2c_opt["all-proxy"] = listener.proxy_url
+    elif listener.proxy_url == "":
+        a2c_opt["all-proxy"] = ""
 
     add_to_queue, event = await check_running_tasks(listener)
     if add_to_queue:

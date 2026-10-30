@@ -313,6 +313,7 @@ class YtDlp(TaskListener):
             "-ns": "",
             "-tl": "",
             "-ff": set(),
+            "-px": None,
         }
 
         arg_parser(input_list[1:], args)
@@ -329,6 +330,13 @@ class YtDlp(TaskListener):
             opt = {}
 
         self.ffmpeg_cmds = args["-ff"]
+
+        px = args["-px"]
+        if px is True:
+            self.proxy_url = ""
+        elif px and isinstance(px, str):
+            self.proxy_url = px
+
         self.select = args["-s"]
         self.name = args["-n"]
         self.up_dest = args["-up"]

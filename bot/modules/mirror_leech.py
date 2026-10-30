@@ -108,6 +108,7 @@ class Mirror(TaskListener):
             "-ns": "",
             "-tl": "",
             "-ff": set(),
+            "-px": None,
         }
 
         arg_parser(input_list[1:], args)
@@ -139,6 +140,12 @@ class Mirror(TaskListener):
         self.bot_trans = args["-bt"]
         self.user_trans = args["-ut"]
         self.ffmpeg_cmds = args["-ff"]
+
+        px = args["-px"]
+        if px is True:
+            self.proxy_url = ""
+        elif px and isinstance(px, str):
+            self.proxy_url = px
 
         headers = args["-h"]
         if headers:

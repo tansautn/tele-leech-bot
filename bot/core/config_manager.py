@@ -55,6 +55,7 @@ class Config:
     SUDO_USERS = ""
     TELEGRAM_API = 0
     TELEGRAM_HASH = ""
+    PROXY_URL = ""
     TG_PROXY = {}
     THUMBNAIL_LAYOUT = ""
     TORRENT_TIMEOUT = 0
