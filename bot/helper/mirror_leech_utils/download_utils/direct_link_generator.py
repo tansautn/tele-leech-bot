@@ -7,7 +7,7 @@ from os import path as ospath
 from re import findall, match, search
 from requests import Session, post, get
 from requests.adapters import HTTPAdapter
-from time import sleep
+from time import sleep, time
 from urllib.parse import parse_qs, urlparse, quote
 from urllib3.util.retry import Retry
 from uuid import uuid4
@@ -18,6 +18,7 @@ from ...ext_utils.exceptions import DirectDownloadLinkException
 from ...ext_utils.help_messages import PASSWORD_ERROR_MESSAGE
 from ...ext_utils.links_utils import is_share_link
 from ...ext_utils.status_utils import speed_string_to_bytes
+from .url_shortener_bypass import bypass_shortener, is_url_shortener
 
 user_agent = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0"
@@ -29,6 +30,14 @@ def direct_link_generator(link):
     domain = urlparse(link).hostname
     if not domain:
         raise DirectDownloadLinkException("ERROR: Invalid URL")
+    elif is_url_shortener(domain):
+        resolved = bypass_shortener(link)
+        try:
+            return direct_link_generator(resolved)
+        except DirectDownloadLinkException as e:
+            if str(e).startswith("ERROR: No Direct link function found"):
+                return resolved
+            raise
     elif "yadi.sk" in link or "disk.yandex." in link:
         return yandex_disk(link)
     elif "buzzheavier.com" in domain:
@@ -49,6 +58,8 @@ def direct_link_generator(link):
         return osdn(link)
     elif "github.com" in domain:
         return github(link)
+    elif "transfer.it" in domain:
+        return transfer_it(link)
     elif "hxfile.co" in domain:
         return hxfile(link)
     elif "1drv.ms" in domain:
@@ -87,6 +98,10 @@ def direct_link_generator(link):
         return berkasdrive(link)
     elif "swisstransfer.com" in domain:
         return swisstransfer(link)
+    elif "mega.nz" in domain:
+        return mega(link)
+    elif "koramaup.com" in domain:
+        return koramaup(link)
     elif any(x in domain for x in ["akmfiles.com", "akmfls.xyz"]):
         return akmfiles(link)
     elif any(
@@ -227,6 +242,113 @@ def get_captcha_token(session, params):
     res = session.post(f"{recaptcha_api}/reload", params=params)
     if token := findall(r'"rresp","(.*?)"', res.text):
         return token[0]
+
+
+def transfer_it(url):
+    resp = post("https://transfer-it-thezake.vercel.app/api/post", json={"url": url})
+    if resp.status_code == 200:
+        return resp.json()["url"]
+    else:
+        raise DirectDownloadLinkException("ERROR: File Expired or File Not Found")
+
+
+def mega(url):
+    api = "https://megadl.the-zake.workers.dev/api/mega"
+    deadline = time() + 120
+    try:
+        data = get(api, params={"url": url}, timeout=40).json()
+        if "error" in data:
+            raise DirectDownloadLinkException(f"ERROR: {data.get('message') or data['error']}")
+    except DirectDownloadLinkException:
+        raise
+    except Exception as e:
+        raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}: {e}")
+
+    job_id = data.get("job_id")
+    while data.get("state") not in ("completed", "partial", "failed", "expired"):
+        remaining = deadline - time()
+        if remaining <= 2:
+            break
+        sleep(2)
+        try:
+            data = get(f"{api}/status", params={"id": job_id}, timeout=min(20, remaining)).json()
+        except Exception:
+            break
+
+    if data.get("state") in ("failed", "expired"):
+        raise DirectDownloadLinkException(f"ERROR: Job {data.get('state')}")
+
+    files = [f for f in data.get("files", []) if f.get("download_url")]
+    if not files:
+        raise DirectDownloadLinkException("ERROR: No downloadable files found")
+
+    if len(files) == 1:
+        return files[0]["download_url"]
+
+    details = {"contents": [], "title": data.get("name") or "Mega", "total_size": 0}
+    for f in files:
+        details["total_size"] += f.get("size") or 0
+        details["contents"].append({
+            "url": f["download_url"],
+            "filename": f["name"],
+            "path": "",
+        })
+    return details
+
+
+def koramaup(url):
+    session = Session()
+    session.headers.update(
+        {
+            "User-Agent": user_agent,
+        }
+    )
+
+    try:
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            raise DirectDownloadLinkException(
+                f"ERROR: HTTP status {response.status_code}"
+            )
+
+    except Exception as e:
+        raise DirectDownloadLinkException(f"ERROR: Fallo de conexión -> {e}")
+
+    html = HTML(response.text)
+
+    if error := html.xpath('//div[@class="uk-alert-danger uk-alert"]//p/text()'):
+        raise DirectDownloadLinkException(f"ERROR: {error[0]}")
+
+    if content := html.xpath("//script[contains(text(),'download-timer')]"):
+        content = content[0].text or ""
+        if match := search(r"""href\s=\s\\['"]([^'"]+)[\\"]';""", content):
+            intermediate_url = match.group(1)
+
+            sleep(5)
+            try:
+                redirect_response = session.get(
+                    intermediate_url,
+                    timeout=15,
+                    allow_redirects=False,
+                    headers={"Referer": url},
+                )
+            except Exception as e:
+                raise DirectDownloadLinkException(
+                    f"ERROR: Failure while following a redirection -> {e}"
+                )
+
+            if redirect_response.status_code in (301, 302, 303, 307, 308):
+                final_url = redirect_response.headers.get("Location")
+                if final_url:
+                    return final_url
+
+                raise DirectDownloadLinkException(
+                    "ERROR: Redirect without a header Location"
+                )
+
+            return intermediate_url
+
+    raise DirectDownloadLinkException("ERROR: Direct Link not found")
 
 
 def buzzheavier(url):
@@ -433,6 +555,7 @@ def mediafile(url):
     except Exception as e:
         raise DirectDownloadLinkException(f"ERROR: {str(e)}") from e
 
+
 def mediafire(url, session=None):
     if "/folder/" in url:
         return mediafireFolder(url)
@@ -493,7 +616,8 @@ def mediafire(url, session=None):
         return mediafire(final_url, session)
     session.close()
     return final_link[0]
-    
+
+
 def osdn(url):
     with create_scraper() as session:
         try:
@@ -602,7 +726,7 @@ def pixeldrain(url):
     try:
         url = url.rstrip("/")
         code = url.split("/")[-1].split("?", 1)[0]
-        response = get("https://pd.cybar.xyz/", allow_redirects=True)
+        response = get("https://cdn.pixeldrain.eu.cc/", allow_redirects=True)
         return response.url + code
     except Exception as e:
         raise DirectDownloadLinkException("ERROR: Direct link not found")
@@ -772,32 +896,308 @@ def uploadee(url):
 
 
 def terabox(url):
+
     if "/file/" in url:
         return url
-    api_url = f"https://wdzone-terabox-api.vercel.app/api?url={quote(url)}"
+
+    COOKIE_DOMAINS = (
+        "terabox", "1024tera", "freeterabox", "nephobox", "4funbox",
+        "mirrobox", "momerybox", "gibibox", "goaibox", "teraboxapp",
+        "terasharelink", "teraboxlink", "teraboxshare", "terafileshare",
+    )
+    API_PARAMS = {
+        "app_id": "250528", "web": "1", "channel": "dubox", "clienttype": "0",
+    }
+
+    def __load_cookies():
+        if not ospath.isfile("cookies.txt"):
+            return None
+        cookies = {}
+        try:
+            with open("cookies.txt") as f:
+                for line in f:
+                    line = line.rstrip("\r\n")
+                    if line.startswith("#HttpOnly_"):
+                        line = line[len("#HttpOnly_"):]
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) < 7:
+                        continue
+                    if not any(k in parts[0].lower() for k in COOKIE_DOMAINS):
+                        continue
+                    cookies[parts[5]] = parts[6]
+        except Exception:
+            return None
+        if not cookies.get("BDUSS") and not cookies.get("ndus"):
+            return None
+        return cookies
+
+    def __parse_share(share_url):
+        parsed = urlparse(share_url)
+        qs = parse_qs(parsed.query)
+        password = (qs.get("pwd") or [""])[0]
+        surl = ""
+        if "surl" in qs:
+            surl = qs["surl"][0]
+        elif "/s/" in parsed.path:
+            surl = parsed.path.split("/s/", 1)[1].split("/", 1)[0]
+        if surl.startswith("1") and len(surl) > 20:
+            surl = surl[1:]
+        if not surl:
+            raise DirectDownloadLinkException(
+                "ERROR: Could not parse Terabox share URL"
+            )
+        return surl, password
+
+    def __bootstrap(session, surl, password):
+        try:
+            resp = session.get(
+                f"https://www.terabox.com/sharing/link?surl={surl}",
+                timeout=30, allow_redirects=True,
+            )
+        except Exception as e:
+            raise DirectDownloadLinkException(
+                f"ERROR: {e.__class__.__name__}"
+            ) from e
+        html_text = resp.text
+        m = search(r'fn%28%22([0-9A-F]+)%22%29', html_text) or \
+            search(r'fn\("([0-9A-F]+)"\)', html_text)
+        if not m:
+            raise DirectDownloadLinkException(
+                "ERROR: jsToken not found (login expired?)"
+            )
+        js_token = m.group(1)
+        pcf = search(r'pcftoken["\']?\s*[:=]\s*["\']([0-9a-f]+)', html_text)
+        pcftoken = pcf.group(1) if pcf else "0"
+        if password:
+            try:
+                v = session.post(
+                    f"https://{resp.url.split('/')[2]}/share/verify",
+                    params={**API_PARAMS, "surl": surl},
+                    data={"pwd": password},
+                    timeout=30,
+                ).json()
+                if v.get("errno") != 0:
+                    raise DirectDownloadLinkException(
+                        f"ERROR: Share password verification failed "
+                        f"(errno={v.get('errno')})"
+                    )
+            except DirectDownloadLinkException:
+                raise
+            except Exception as e:
+                raise DirectDownloadLinkException(
+                    f"ERROR: {e.__class__.__name__}"
+                ) from e
+        return js_token, pcftoken
+
+    def __share_list(session, surl, js_token, pcftoken, *, dir_path=None,
+                     root=False, page=1, num=200):
+        params = {
+            **API_PARAMS, "jsToken": js_token, "pcftoken": pcftoken,
+            "shorturl": surl, "page": str(page), "num": str(num),
+            "by": "name", "order": "asc", "scene": "",
+        }
+        if root:
+            params["root"] = "1"
+        if dir_path is not None:
+            params["dir"] = dir_path
+        try:
+            data = session.get(
+                "https://dm.terabox.com/share/list",
+                params=params, timeout=30,
+            ).json()
+        except Exception as e:
+            raise DirectDownloadLinkException(
+                f"ERROR: {e.__class__.__name__}"
+            ) from e
+        if data.get("errno") not in (0, None):
+            raise DirectDownloadLinkException(
+                f"ERROR: share/list errno={data.get('errno')}"
+            )
+        return data
+
+    def __shorturlinfo(session, surl, js_token):
+        try:
+            data = session.get(
+                "https://www.terabox.com/api/shorturlinfo",
+                params={
+                    **API_PARAMS, "jsToken": js_token,
+                    "shorturl": "1" + surl, "root": "1",
+                    "page": "1", "num": "20",
+                },
+                timeout=30,
+            ).json()
+        except Exception as e:
+            raise DirectDownloadLinkException(
+                f"ERROR: {e.__class__.__name__}"
+            ) from e
+        if data.get("errno") not in (0, None):
+            raise DirectDownloadLinkException(
+                f"ERROR: shorturlinfo errno={data.get('errno')}"
+            )
+        return data
+
+    def __resolve_dlinks(session, js_token, meta, fs_ids):
+        out = {}
+        for fid in fs_ids:
+            try:
+                data = session.post(
+                    "https://www.terabox.com/share/download",
+                    params={
+                        **API_PARAMS, "jsToken": js_token,
+                        "sign": meta["sign"],
+                        "timestamp": str(meta["timestamp"]),
+                    },
+                    data={
+                        "shareid": str(meta["shareid"]),
+                        "uk": str(meta["uk"]),
+                        "product": "share",
+                        "fid_list": "[" + str(fid) + "]",
+                        "primaryid": str(meta["shareid"]),
+                        "type": "nolimit",
+                    },
+                    timeout=30,
+                ).json()
+            except Exception as e:
+                raise DirectDownloadLinkException(
+                    f"ERROR: {e.__class__.__name__}"
+                ) from e
+            if data.get("errno") not in (0, None):
+                raise DirectDownloadLinkException(
+                    f"ERROR: share/download errno={data.get('errno')}"
+                )
+            if data.get("dlink"):
+                out[fid] = data["dlink"]
+            sleep(0.3)
+        return out
+
+    def __crawl_with_cookies(cookies):
+        surl, password = __parse_share(url)
+        session = Session()
+        session.cookies.update(cookies)
+        session.headers.update({
+            "User-Agent": user_agent,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": f"https://www.terabox.com/sharing/link?surl={surl}",
+        })
+        js_token, pcftoken = __bootstrap(session, surl, password)
+        info = __shorturlinfo(session, surl, js_token)
+        meta = {
+            "sign": info.get("sign", ""),
+            "timestamp": info.get("timestamp", ""),
+            "shareid": info.get("shareid") or info.get("share_id"),
+            "uk": info.get("uk"),
+        }
+        details = {"contents": [], "title": "", "total_size": 0}
+        pending = []
+
+        def __walk(dir_path=None, root=False):
+            page = 1
+            while True:
+                data = __share_list(
+                    session, surl, js_token, pcftoken,
+                    dir_path=dir_path, root=root, page=page, num=200,
+                )
+                if root and page == 1 and not details["title"]:
+                    details["title"] = (data.get("title") or surl).lstrip("/")
+                items = data.get("list") or []
+                if not items:
+                    break
+                for it in items:
+                    if int(it.get("isdir") or 0):
+                        __walk(dir_path=it["path"])
+                    else:
+                        entry = {
+                            "path": ospath.dirname(it.get("path", "")).lstrip("/"),
+                            "filename": it["server_filename"],
+                            "url": it.get("dlink", ""),
+                        }
+                        details["contents"].append(entry)
+                        details["total_size"] += int(it.get("size") or 0)
+                        if not entry["url"]:
+                            pending.append(
+                                (int(it["fs_id"]), len(details["contents"]) - 1)
+                            )
+                if len(items) < 200:
+                    break
+                page += 1
+                sleep(0.3)
+
+        __walk(root=True)
+
+        if pending:
+            resolved = __resolve_dlinks(
+                session, js_token, meta, [fid for fid, _ in pending]
+            )
+            for fid, idx in pending:
+                if fid in resolved:
+                    details["contents"][idx]["url"] = resolved[fid]
+            missing = [details["contents"][idx]["filename"]
+                       for fid, idx in pending if fid not in resolved]
+            if missing:
+                raise DirectDownloadLinkException(
+                    f"ERROR: failed to resolve dlink for {len(missing)} "
+                    f"file(s); first: {missing[0]}"
+                )
+
+        if not details["contents"]:
+            raise DirectDownloadLinkException(
+                "ERROR: Empty share or invalid cookies"
+            )
+        if not details["title"]:
+            details["title"] = details["contents"][0]["filename"]
+
+        cookie_header = "; ".join(f"{k}={v}" for k, v in cookies.items())
+        details["header"] = (
+            f"Cookie: {cookie_header}\n"
+            f"User-Agent: {user_agent}\n"
+            f"Referer: https://www.terabox.com/"
+        )
+        if len(details["contents"]) == 1:
+            return details["contents"][0]["url"], details["header"]
+        return details
+
+    cookies = __load_cookies()
+    if cookies:
+        try:
+            return __crawl_with_cookies(cookies)
+        except DirectDownloadLinkException:
+            raise
+        except Exception:
+            pass
+
+    api_url = "https://teraboxdl.site/api/proxy"
+    headers = {"Referer": "https://teraboxdl.site/", "User-Agent": user_agent}
+    payload = {"url": url}
+
     try:
         with Session() as session:
-            req = session.get(api_url, headers={"User-Agent": user_agent}).json()
+            req = session.post(api_url, json=payload, headers=headers, timeout=30).json()
     except Exception as e:
         raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}") from e
 
     details = {"contents": [], "title": "", "total_size": 0}
-    if "✅ Status" not in req:
+
+    if req.get("errno") != 0 or not req.get("list"):
         raise DirectDownloadLinkException("ERROR: File not found!")
-    for data in req["📜 Extracted Info"]:
+
+    for data in req["list"]:
         item = {
-            "path": "",
-            "filename": data["📂 Title"],
-            "url": data["🔽 Direct Download Link"],
+            "path": data.get("path", ""),
+            "filename": data["server_filename"],
+            "url": data["direct_link"],
         }
         details["contents"].append(item)
-        size = (data["📏 Size"]).replace(" ", "")
-        size = speed_string_to_bytes(size)
-        details["total_size"] += size
-    details["title"] = req["📜 Extracted Info"][0]["📂 Title"]
+        details["total_size"] += data.get("size", 0)
+
+    details["title"] = req["list"][0]["server_filename"]
+
     if len(details["contents"]) == 1:
         return details["contents"][0]["url"]
     return details
+
 
 
 def filepress(url):
@@ -870,7 +1270,7 @@ def sharer_scraper(url):
         raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}") from e
     if "url" not in res:
         raise DirectDownloadLinkException(
-            "ERROR: Drive Link not found, Try in your broswer"
+            "ERROR: Drive Link not found, Try in your browser"
         )
     if "drive.google.com" in res["url"] or "drive.usercontent.google.com" in res["url"]:
         return res["url"]
@@ -885,7 +1285,7 @@ def sharer_scraper(url):
         return drive_link[0]
     else:
         raise DirectDownloadLinkException(
-            "ERROR: Drive Link not found, Try in your broswer"
+            "ERROR: Drive Link not found, Try in your browser"
         )
 
 
@@ -1087,13 +1487,18 @@ def gofile(url):
             raise e
 
     def __fetch_links(session, _id, folderPath=""):
-        _url = f"https://api.gofile.io/contents/{_id}?wt=4fd6sg89d7s6&cache=true"
+        _url = f"https://api.gofile.io/contents/{_id}?cache=true"
+        time_slot = int(time()) // 14400
+        raw = f"{user_agent}::en-US::{token}::{time_slot}::gf2026x"
+        wt = sha256(raw.encode()).hexdigest()
         headers = {
             "User-Agent": user_agent,
             "Accept-Encoding": "gzip, deflate, br",
             "Accept": "*/*",
             "Connection": "keep-alive",
             "Authorization": "Bearer" + " " + token,
+            "X-Website-Token": wt,
+            "X-BL": "en-US"
         }
         if _password:
             _url += f"&password={_password}"
@@ -1150,7 +1555,7 @@ def gofile(url):
             token = __get_token(session)
         except Exception as e:
             raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}")
-        details["header"] = [f"Cookie: accountToken={token}"]
+        details["header"] = f"Cookie: accountToken={token}"
         try:
             __fetch_links(session, _id)
         except Exception as e:
@@ -1248,12 +1653,12 @@ def mediafireFolder(url):
         except:
             return None
         return final_link
-    
+
     def __decode_url(html):
         enc_url = html.xpath('//a[@id="downloadButton"]')
         if enc_url:
-            final_link = enc_url[0].attrib.get('href')
-            scrambled = enc_url[0].attrib.get('data-scrambled-url')
+            final_link = enc_url[0].attrib.get("href")
+            scrambled = enc_url[0].attrib.get("data-scrambled-url")
             if final_link and scrambled:
                 try:
                     final_link = b64decode(scrambled).decode("utf-8")

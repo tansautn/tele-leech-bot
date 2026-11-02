@@ -1,7 +1,7 @@
 from aiofiles.os import path as aiopath, remove, makedirs
 from aiofiles import open as aiopen
 from aioshutil import rmtree
-from asyncio import create_subprocess_exec, create_subprocess_shell
+from asyncio import create_subprocess_exec, create_subprocess_shell, sleep
 from importlib import import_module
 from urllib.parse import urlparse
 
@@ -14,6 +14,7 @@ from .. import (
     index_urls,
     user_data,
     excluded_extensions,
+    included_extensions,
     LOGGER,
     rss_dict,
     sabnzbd_client,
@@ -35,6 +36,7 @@ async def update_qb_options():
     from .. import ENABLED_MODULES
     if "qBit" not in ENABLED_MODULES:
         return
+    LOGGER.info("Get qBittorrent options from server")
     if not qbit_options:
         opt = await TorrentManager.qbittorrent.app.preferences()
         qbit_options.update(opt)
@@ -83,6 +85,7 @@ async def update_aria2_options():
     from .. import ENABLED_MODULES
     if "aria2c" not in ENABLED_MODULES:
         return
+    LOGGER.info("Get aria2 options from server")
     if not aria2_options:
         op = await TorrentManager.aria2.getGlobalOption()
         aria2_options.update(op)
@@ -99,106 +102,120 @@ async def update_nzb_options():
     from .. import ENABLED_MODULES
     if "nZB" not in ENABLED_MODULES or sabnzbd_client is None:
         return
-    no = (await sabnzbd_client.get_config())["config"]["misc"]
-    nzb_options.update(no)
+    LOGGER.info("Get SABnzbd options from server")
+    while True:
+        try:
+            no = (await sabnzbd_client.get_config())["config"]["misc"]
+            nzb_options.update(no)
+        except:
+            await sleep(0.5)
+            continue
+        break
 
 
 async def load_settings():
     if not Config.DATABASE_URL:
         return
+
     for p in ["thumbnails", "tokens", "rclone"]:
         if await aiopath.exists(p):
             await rmtree(p, ignore_errors=True)
+
     await database.connect()
-    if database.db is not None:
-        BOT_ID = Config.BOT_TOKEN.split(":", 1)[0]
+    if database.db is None:
+        return
+
+    BOT_ID = Config.BOT_TOKEN.split(":", 1)[0]
+
+    try:
         settings = import_module("config")
         config_file = {
             key: value.strip() if isinstance(value, str) else value
             for key, value in vars(settings).items()
             if not key.startswith("__")
         }
-        old_config = await database.db.settings.deployConfig.find_one(
+    except ModuleNotFoundError:
+        config_file = {}
+
+    old_config = await database.db.settings.deployConfig.find_one(
+        {"_id": BOT_ID}, {"_id": 0}
+    )
+    if old_config is None and config_file:
+        await database.db.settings.deployConfig.replace_one(
+            {"_id": BOT_ID}, config_file, upsert=True
+        )
+    elif old_config and config_file and old_config != config_file:
+        LOGGER.info("Replacing existing deploy config in Database")
+        await database.db.settings.deployConfig.replace_one(
+            {"_id": BOT_ID}, config_file, upsert=True
+        )
+    else:
+        config_dict = await database.db.settings.config.find_one(
             {"_id": BOT_ID}, {"_id": 0}
         )
-        if old_config is None:
-            await database.db.settings.deployConfig.replace_one(
-                {"_id": BOT_ID}, config_file, upsert=True
-            )
-        if old_config and old_config != config_file:
-            LOGGER.info("Replacing existing deploy config in Database")
-            await database.db.settings.deployConfig.replace_one(
-                {"_id": BOT_ID}, config_file, upsert=True
-            )
-        else:
-            config_dict = await database.db.settings.config.find_one(
-                {"_id": BOT_ID}, {"_id": 0}
-            )
-            if config_dict:
-                Config.load_dict(config_dict)
+        if config_dict:
+            Config.load_dict(config_dict)
 
-        if pf_dict := await database.db.settings.files.find_one(
-            {"_id": BOT_ID}, {"_id": 0}
-        ):
-            for key, value in pf_dict.items():
-                if value:
-                    file_ = key.replace("__", ".")
-                    async with aiopen(file_, "wb+") as f:
-                        await f.write(value)
+    if pf_dict := await database.db.settings.files.find_one(
+        {"_id": BOT_ID}, {"_id": 0}
+    ):
+        for key, value in pf_dict.items():
+            if value:
+                file_ = key.replace("__", ".")
+                async with aiopen(file_, "wb+") as f:
+                    await f.write(value)
 
-        if a2c_options := await database.db.settings.aria2c.find_one(
-            {"_id": BOT_ID}, {"_id": 0}
-        ):
-            aria2_options.update(a2c_options)
+    if a2c_options := await database.db.settings.aria2c.find_one(
+        {"_id": BOT_ID}, {"_id": 0}
+    ):
+        aria2_options.update(a2c_options)
 
-        if qbit_opt := await database.db.settings.qbittorrent.find_one(
-            {"_id": BOT_ID}, {"_id": 0}
-        ):
-            qbit_options.update(qbit_opt)
+    if qbit_opt := await database.db.settings.qbittorrent.find_one(
+        {"_id": BOT_ID}, {"_id": 0}
+    ):
+        qbit_options.update(qbit_opt)
 
-        if nzb_opt := await database.db.settings.nzb.find_one(
-            {"_id": BOT_ID}, {"_id": 0}
-        ):
-            if await aiopath.exists("sabnzbd/SABnzbd.ini.bak"):
-                await remove("sabnzbd/SABnzbd.ini.bak")
-            ((key, value),) = nzb_opt.items()
-            file_ = key.replace("__", ".")
-            async with aiopen(f"sabnzbd/{file_}", "wb+") as f:
-                await f.write(value)
+    if nzb_opt := await database.db.settings.nzb.find_one({"_id": BOT_ID}, {"_id": 0}):
+        if await aiopath.exists("sabnzbd/SABnzbd.ini.bak"):
+            await remove("sabnzbd/SABnzbd.ini.bak")
+        ((key, value),) = nzb_opt.items()
+        file_ = key.replace("__", ".")
+        async with aiopen(f"sabnzbd/{file_}", "wb+") as f:
+            await f.write(value)
 
-        if await database.db.users.find_one():
-            for p in ["thumbnails", "tokens", "rclone"]:
-                if not await aiopath.exists(p):
-                    await makedirs(p)
-            rows = database.db.users.find({})
-            async for row in rows:
-                uid = row["_id"]
-                del row["_id"]
-                thumb_path = f"thumbnails/{uid}.jpg"
-                rclone_config_path = f"rclone/{uid}.conf"
-                token_path = f"tokens/{uid}.pickle"
-                if row.get("THUMBNAIL"):
-                    async with aiopen(thumb_path, "wb+") as f:
-                        await f.write(row["THUMBNAIL"])
-                    row["THUMBNAIL"] = thumb_path
-                if row.get("RCLONE_CONFIG"):
-                    async with aiopen(rclone_config_path, "wb+") as f:
-                        await f.write(row["RCLONE_CONFIG"])
-                    row["RCLONE_CONFIG"] = rclone_config_path
-                if row.get("TOKEN_PICKLE"):
-                    async with aiopen(token_path, "wb+") as f:
-                        await f.write(row["TOKEN_PICKLE"])
-                    row["TOKEN_PICKLE"] = token_path
-                user_data[uid] = row
-            LOGGER.info("Users data has been imported from Database")
+    if await database.db.users.find_one():
+        for p in ["thumbnails", "tokens", "rclone"]:
+            if not await aiopath.exists(p):
+                await makedirs(p)
+        rows = database.db.users.find({})
+        async for row in rows:
+            uid = row["_id"]
+            del row["_id"]
+            thumb_path = f"thumbnails/{uid}.jpg"
+            rclone_config_path = f"rclone/{uid}.conf"
+            token_path = f"tokens/{uid}.pickle"
+            if row.get("THUMBNAIL"):
+                async with aiopen(thumb_path, "wb+") as f:
+                    await f.write(row["THUMBNAIL"])
+                row["THUMBNAIL"] = thumb_path
+            if row.get("RCLONE_CONFIG"):
+                async with aiopen(rclone_config_path, "wb+") as f:
+                    await f.write(row["RCLONE_CONFIG"])
+                row["RCLONE_CONFIG"] = rclone_config_path
+            if row.get("TOKEN_PICKLE"):
+                async with aiopen(token_path, "wb+") as f:
+                    await f.write(row["TOKEN_PICKLE"])
+                row["TOKEN_PICKLE"] = token_path
+            user_data[uid] = row
+        LOGGER.info("Users data has been imported from Database")
 
-        if await database.db.rss[BOT_ID].find_one():
-            rows = database.db.rss[BOT_ID].find({})
-            async for row in rows:
-                user_id = row["_id"]
-                del row["_id"]
-                rss_dict[user_id] = row
-            LOGGER.info("Rss data has been imported from Database.")
+    if await database.db.rss[BOT_ID].find_one():
+        rows = database.db.rss[BOT_ID].find({})
+        async for row in rows:
+            user_id = row["_id"]
+            del row["_id"]
+            rss_dict[user_id] = row
+        LOGGER.info("Rss data has been imported from Database.")
 
 
 async def save_settings():
@@ -260,6 +277,12 @@ async def update_variables():
         for x in fx:
             x = x.lstrip(".")
             excluded_extensions.append(x.strip().lower())
+
+    if Config.INCLUDED_EXTENSIONS:
+        fx = Config.INCLUDED_EXTENSIONS.split()
+        for x in fx:
+            x = x.lstrip(".")
+            included_extensions.append(x.strip().lower())
 
     if Config.GDRIVE_ID:
         drives_names.append("Main")

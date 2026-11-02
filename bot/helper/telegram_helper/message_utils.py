@@ -25,17 +25,17 @@ async def send_message(message, text, buttons=None, block=True):
         if not block:
             return str(f)
         await sleep(f.value * 1.2)
-        return await send_message(message, text, buttons)
+        return await send_message(message, text, buttons, block)
     except Exception as e:
         LOGGER.error(str(e))
         return str(e)
 
 
-async def edit_message(message, text, buttons=None, block=True):
+async def send_rich_message(message, rich_input, buttons=None, block=True):
     try:
-        return await message.edit(
-            text=text,
-            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        return await message.reply_rich(
+            rich_message=rich_input,
+            disable_notification=True,
             reply_markup=buttons,
         )
     except FloodWait as f:
@@ -43,7 +43,26 @@ async def edit_message(message, text, buttons=None, block=True):
         if not block:
             return str(f)
         await sleep(f.value * 1.2)
-        return await edit_message(message, text, buttons)
+        return await send_rich_message(message, rich_input, buttons, block)
+    except Exception as e:
+        LOGGER.error(str(e))
+        return str(e)
+
+
+async def edit_message(message, text=None, buttons=None, block=True, rich_message=None):
+    try:
+        return await message.edit(
+            text=text,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+            reply_markup=buttons,
+            rich_message=rich_message,
+        )
+    except FloodWait as f:
+        LOGGER.warning(str(f))
+        if not block:
+            return str(f)
+        await sleep(f.value * 1.2)
+        return await edit_message(message, text, buttons, block, rich_message)
     except Exception as e:
         LOGGER.error(str(e))
         return str(e)
@@ -113,7 +132,8 @@ async def get_tg_link_message(link):
     if link.startswith("https://t.me/"):
         private = False
         msg = re_match(
-            r"https:\/\/t\.me\/(?:c\/)?([^\/]+)(?:\/[^\/]+)?\/([0-9-]+)", link
+            r"https:\/\/t\.me\/(?:c\/)?([^\/]+)\/(?:\d+\/)*([0-9-]+)",
+            link,
         )
     else:
         private = True
@@ -122,7 +142,8 @@ async def get_tg_link_message(link):
         )
         if not TgClient.user:
             raise TgLinkException("USER_SESSION_STRING required for this private link!")
-
+    if not msg:
+        raise TgLinkException("Wrong link format!")
     chat = msg[1]
     msg_id = msg[2]
     if "-" in msg_id:
@@ -171,8 +192,10 @@ async def get_tg_link_message(link):
             ) from e
         if not user_message.empty:
             return (links, "user") if links else (user_message, "user")
+        else:
+            raise TgLinkException("Private: Can't get this message!")
     else:
-        raise TgLinkException("Private: Please report!")
+        raise TgLinkException("Private: Can't get this message!")
 
 
 async def temp_download(msg):
@@ -207,7 +230,11 @@ async def update_status_message(sid, force=False):
             return
         if text != status_dict[sid]["message"].text:
             message = await edit_message(
-                status_dict[sid]["message"], text, buttons, block=False
+                status_dict[sid]["message"],
+                None,
+                buttons,
+                block=False,
+                rich_message=text,
             )
             if isinstance(message, str):
                 if message.startswith("Telegram says: [40"):
@@ -244,7 +271,7 @@ async def send_status_message(msg, user_id=0):
                     del intervals["status"][sid]
                 return
             old_message = status_dict[sid]["message"]
-            message = await send_message(msg, text, buttons, block=False)
+            message = await send_rich_message(msg, text, buttons, block=False)
             if isinstance(message, str):
                 LOGGER.error(
                     f"Status with id: {sid} haven't been sent. Error: {message}"
@@ -257,7 +284,7 @@ async def send_status_message(msg, user_id=0):
             text, buttons = await get_readable_message(sid, is_user)
             if text is None:
                 return
-            message = await send_message(msg, text, buttons, block=False)
+            message = await send_rich_message(msg, text, buttons, block=False)
             if isinstance(message, str):
                 LOGGER.error(
                     f"Status with id: {sid} haven't been sent. Error: {message}"

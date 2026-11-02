@@ -4,6 +4,7 @@ from re import search as re_search
 from secrets import token_urlsafe
 from yt_dlp import YoutubeDL, DownloadError
 
+
 from .... import task_dict_lock, task_dict
 
 _COOKIES_FILE = ospath.join(getcwd(), "cookies.txt")
@@ -53,6 +54,7 @@ class YoutubeDLHelper:
         self._gid = ""
         self._ext = ""
         self.is_playlist = False
+        self.keep_thumb = False
         self.opts = {
             "progress_hooks": [self._on_download_progress],
             "logger": MyLogger(self, self._listener),
@@ -229,6 +231,9 @@ class YoutubeDLHelper:
             else:
                 self._ext = f".{audio_format}"
 
+        if not self._listener.is_leech or self._listener.thumbnail_layout:
+            self.opts["writethumbnail"] = False
+
         if options:
             self._set_options(options)
 
@@ -248,15 +253,16 @@ class YoutubeDLHelper:
             )
             base_name = ospath.splitext(self._listener.name)[0]
 
+        start_path = path if self.keep_thumb else f"{path}/yt-dlp-thumb"
         if self.is_playlist:
             self.opts["outtmpl"] = {
-                "default": f"{path}/{self._listener.name}/%(title,fulltitle,alt_title)s%(season_number& |)s%(season_number&S|)s%(season_number|)02d%(episode_number&E|)s%(episode_number|)02d%(height& |)s%(height|)s%(height&p|)s%(fps|)s%(fps&fps|)s%(tbr& |)s%(tbr|)d.%(ext)s",
-                "thumbnail": f"{path}/yt-dlp-thumb/%(title,fulltitle,alt_title)s%(season_number& |)s%(season_number&S|)s%(season_number|)02d%(episode_number&E|)s%(episode_number|)02d%(height& |)s%(height|)s%(height&p|)s%(fps|)s%(fps&fps|)s%(tbr& |)s%(tbr|)d.%(ext)s",
+                "default": f"{path}/{self._listener.name}/%(playlist_index)03d - %(title,fulltitle,alt_title)s%(season_number& |)s%(season_number&S|)s%(season_number|)02d%(episode_number&E|)s%(episode_number|)02d%(height& |)s%(height|)s%(height&p|)s%(fps|)s%(fps&fps|)s%(tbr& |)s%(tbr|)d.%(ext)s",
+                "thumbnail": f"{start_path}/%(playlist_index)03d - %(title,fulltitle,alt_title)s%(season_number& |)s%(season_number&S|)s%(season_number|)02d%(episode_number&E|)s%(episode_number|)02d%(height& |)s%(height|)s%(height&p|)s%(fps|)s%(fps&fps|)s%(tbr& |)s%(tbr|)d.%(ext)s",
             }
         elif "download_ranges" in options:
             self.opts["outtmpl"] = {
                 "default": f"{path}/{base_name}/%(section_number|)s%(section_number&.|)s%(section_title|)s%(section_title&-|)s%(title,fulltitle,alt_title)s %(section_start)s to %(section_end)s.%(ext)s",
-                "thumbnail": f"{path}/yt-dlp-thumb/%(section_number|)s%(section_number&.|)s%(section_title|)s%(section_title&-|)s%(title,fulltitle,alt_title)s %(section_start)s to %(section_end)s.%(ext)s",
+                "thumbnail": f"{start_path}/%(section_number|)s%(section_number&.|)s%(section_title|)s%(section_title&-|)s%(title,fulltitle,alt_title)s %(section_start)s to %(section_end)s.%(ext)s",
             }
         elif any(
             key in options
@@ -266,25 +272,26 @@ class YoutubeDLHelper:
                 "writeannotations",
                 "writedesktoplink",
                 "writewebloclink",
+                "writelink",
                 "writeurllink",
                 "writesubtitles",
-                "writeautomaticsub",
+                "write_all_thumbnails",
             ]
         ):
             self.opts["outtmpl"] = {
                 "default": f"{path}/{base_name}/{self._listener.name}",
-                "thumbnail": f"{path}/yt-dlp-thumb/{base_name}.%(ext)s",
+                "thumbnail": f"{start_path}/{base_name}.%(ext)s",
             }
         else:
             self.opts["outtmpl"] = {
                 "default": f"{path}/{self._listener.name}",
-                "thumbnail": f"{path}/yt-dlp-thumb/{base_name}.%(ext)s",
+                "thumbnail": f"{start_path}/{base_name}.%(ext)s",
             }
 
         if qual.startswith("ba/b"):
             self._listener.name = f"{base_name}{self._ext}"
 
-        if self._listener.is_leech and not self._listener.thumbnail_layout:
+        if self.opts["writethumbnail"]:
             self.opts["postprocessors"].append(
                 {
                     "format": "jpg",
@@ -306,14 +313,10 @@ class YoutubeDLHelper:
         ]:
             self.opts["postprocessors"].append(
                 {
-                    "already_have_thumbnail": bool(
-                        self._listener.is_leech and not self._listener.thumbnail_layout
-                    ),
+                    "already_have_thumbnail": self.opts["writethumbnail"],
                     "key": "EmbedThumbnail",
                 }
             )
-        elif not self._listener.is_leech:
-            self.opts["writethumbnail"] = False
 
         msg, button = await stop_duplicate_check(self._listener)
         if msg:
@@ -356,4 +359,6 @@ class YoutubeDLHelper:
             else:
                 if key == "cookiefile" and not ospath.isabs(value):
                     value = ospath.join(getcwd(), value)
+                if key == "writethumbnail" and value is True:
+                    self.keep_thumb = True
                 self.opts[key] = value

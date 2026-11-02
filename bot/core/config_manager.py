@@ -12,13 +12,17 @@ class Config:
     BASE_URL_PORT = 80
     BOT_TOKEN = ""
     CMD_SUFFIX = ""
+    CLONE_DUMP_CHATS = ""
     DATABASE_URL = ""
+    DATABASE_NAME = "mltb"
     DEFAULT_UPLOAD = "rc"
     EQUAL_SPLITS = False
     ENABLED_MODULES = "aria2c tgLeech ytDlp"
     EXCLUDED_EXTENSIONS = ""
+    INCLUDED_EXTENSIONS = ""
     FFMPEG_CMDS = {}
     FILELION_API = ""
+    FILES_LINKS = False
     GDRIVE_ID = ""
     INCOMPLETE_TASK_NOTIFIER = False
     INDEX_URL = ""
@@ -32,7 +36,7 @@ class Config:
     HYBRID_LEECH = False
     HYDRA_IP = ""
     HYDRA_API_KEY = ""
-    NAME_SUBSTITUTE = ""
+    NAME_SUBSTITUTE = r""
     OWNER_ID = 0
     QUEUE_ALL = 0
     QUEUE_DOWNLOAD = 0

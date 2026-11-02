@@ -1,6 +1,7 @@
 from psutil import cpu_percent, virtual_memory, disk_usage
 from time import time
-from asyncio import gather, iscoroutinefunction
+from asyncio import gather
+from inspect import iscoroutinefunction
 
 from .. import (
     task_dict_lock,
@@ -30,6 +31,25 @@ from ..helper.telegram_helper.message_utils import (
     edit_message,
 )
 from ..helper.telegram_helper.button_build import ButtonMaker
+
+
+async def _handle_cancel(query, mid, key):
+    user_id = query.from_user.id
+    async with task_dict_lock:
+        task = task_dict.get(mid)
+    if task is None:
+        await query.answer("Task already cancelled or finished!", show_alert=True)
+        return
+
+    if task.listener.user_id != user_id and not await CustomFilters.sudo("", query):
+        await query.answer("Not Yours!", show_alert=True)
+        return
+
+    obj = task.task()
+    await obj.cancel_task()
+    await query.answer()
+    await update_status_message(key, force=True)
+
 
 
 @new_task
@@ -182,3 +202,5 @@ async def status_pages(_, query):
         button = ButtonMaker()
         button.data_button("Back", f"status {data[1]} ref")
         await edit_message(message, msg, button.build_menu())
+    else:
+        await delete_message(query.message)

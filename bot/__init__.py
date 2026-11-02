@@ -41,6 +41,8 @@ basicConfig(
 
 LOGGER = getLogger(__name__)
 cpu_no = cpu_count()
+threads = max(1, cpu_no // 2)
+cores = ",".join(str(i) for i in reversed(range(threads)))
 
 DOWNLOAD_DIR = f"{getcwd()}/downloads/"
 intervals = {"status": {}, "qb": "", "jd": "", "nzb": "", "stopAll": False}
@@ -58,13 +60,14 @@ task_dict = {}
 rss_dict = {}
 auth_chats = {}
 excluded_extensions = ["aria2", "!qB"]
+included_extensions = []
 drives_names = []
 drives_ids = []
 index_urls = []
 sudo_users = []
 non_queued_dl = set()
 non_queued_up = set()
-multi_tags = set()
+multi_tags = {}
 task_dict_lock = Lock()
 queue_dict_lock = Lock()
 qb_listener_lock = Lock()

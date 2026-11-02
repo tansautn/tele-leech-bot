@@ -66,7 +66,7 @@ def bt_selection_buttons(id_):
             "Select Files", f"{Config.BASE_URL}/app/files?gid={id_}&pin={pin}"
         )
     buttons.data_button("Done Selecting", f"sel done {gid} {id_}")
-    buttons.data_button("Cancel", f"sel cancel {gid}")
+    buttons.data_button("Close", "sel close")
     return buttons.build_menu(2)
 
 
@@ -145,7 +145,7 @@ def arg_parser(items, arg_base):
             else:
                 sub_list = []
                 for j in range(i + 1, total):
-                    if items[j] in arg_base:
+                    if items[j] in arg_base and part != "-c" != items[j]:
                         if part in bool_arg_set and not sub_list:
                             arg_base[part] = True
                             break
