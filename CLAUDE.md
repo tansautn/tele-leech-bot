@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Telegram mirror/leech bot (fork of [mirror-leech-telegram-bot](https://github.com/anasty17/mirror-leech-telegram-bot)) that downloads via aria2c, qBittorrent, JDownloader, SABnzbd, and yt-dlp, then uploads to Google Drive, Rclone remotes, or back to Telegram. Built on **Pyrogram** (via the `kurigram` fork) as an async Python 3.11 codebase using `uvloop` (Linux only). Self-upstream is `tansautn/tele-leech-bot` (`UPSTREAM_BRANCH=deploy2025`); the working branch is `master`.
 
-## Before You Write Anything — Rules & Conventions
+## Session Start / Resume — Mandatory Actions
 
 Project rules live in the **`.agents/` git submodule** (repo `tansautn/zuko-ai-rules`, branch `python-qt`). It is **not** auto-initialized — if `.agents/rules/` is empty, run:
 
