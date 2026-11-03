@@ -21,3 +21,4 @@ downloads/*
 *.log
 .idea
 __pycache__
+/.claude/worktrees/

@@ -151,7 +151,7 @@ class GoogleDriveDownload(GoogleDriveHelper):
             request = self.service.files().export_media(
                 fileId=file_id, mimeType=export["mime"]
             )
-            filename = f"{filename}{export["ext"]}"
+            filename = f"{filename}{export['ext']}"
         else:
             request = self.service.files().get_media(
                 fileId=file_id, supportsAllDrives=True, acknowledgeAbuse=True

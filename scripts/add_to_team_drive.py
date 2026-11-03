@@ -1,8 +1,9 @@
+from __future__ import print_function
+
 import sys
 from pathlib import Path
 print(Path(__file__).parent.parent)
 sys.path.append(str(Path(__file__).parent.parent.absolute()))
-from __future__ import print_function
 
 import argparse
 import glob
