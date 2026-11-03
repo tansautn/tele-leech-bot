@@ -399,21 +399,22 @@ class TaskConfig:
                             self.hybrid_leech = False
                         else:
                             member = await chat.get_member(uploader_id)
-                            if (
-                                not member.privileges.can_manage_chat
-                                or not member.privileges.can_delete_messages
-                            ):
+                            if member.privileges:
+                                if (
+                                    not member.privileges.can_manage_chat
+                                    or not member.privileges.can_delete_messages
+                                ):
+                                    self.user_transmission = False
+                                    self.hybrid_leech = False
+                                    LOGGER.warning(
+                                        "Enable manage chat and delete messages to account of the user session from administration settings!"
+                                    )
+                            else:
+                                LOGGER.warning(
+                                    "Promote the account of the user session to admin in the chat to get the benefit of user transmission!"
+                                )
                                 self.user_transmission = False
                                 self.hybrid_leech = False
-                                LOGGER.warning(
-                                    "Enable manage chat and delete messages to account of the user session from administration settings!"
-                                )
-                        else:
-                            LOGGER.warning(
-                                "Promote the account of the user session to admin in the chat to get the benefit of user transmission!"
-                            )
-                            self.user_transmission = False
-                            self.hybrid_leech = False
 
                 if not self.user_transmission or self.hybrid_leech:
                     try:
